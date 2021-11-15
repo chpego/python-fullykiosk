@@ -16,6 +16,7 @@ class FullyKiosk:
         self._rh = _RequestsHandler(session, host, port)
         self._password = password
         self._deviceInfo = None
+        self._settings = None
 
     async def sendCommand(self, cmd, **kwargs):
         data = await self._rh.get(
@@ -30,9 +31,18 @@ class FullyKiosk:
         self._deviceInfo = result
         return self._deviceInfo
 
+    async def getSettings(self):
+        result = await self.sendCommand("listSettings")
+        self._settings = result
+        return self._settings
+
     @property
     def deviceInfo(self):
         return self._deviceInfo
+
+    @property
+    def settings(self):
+        return self._settings
 
     async def startScreensaver(self):
         await self.sendCommand("startScreensaver")
@@ -93,6 +103,12 @@ class FullyKiosk:
     async def unlockKiosk(self):
         await self.sendCommand("unlockKiosk")
 
+    async def enableMotionDetection(self):
+        await self.setConfigurationBool("motionDetection", True)
+
+    async def disableMotionDetection(self):
+        await self.setConfigurationBool("motionDetection", False)
+
     async def rebootDevice(self):
         await self.sendCommand("rebootDevice")
 
@@ -126,6 +142,10 @@ class _RequestsHandler:
                 )
                 raise FullyKioskError(response.status, await response.text())
 
-            data = await response.json(content_type="text/html")
+            try:
+                data = await response.json()
+            except aiohttp.client_exceptions.ContentTypeError:
+                data = await response.json(content_type="text/html")
+
             _LOGGER.debug(json.dumps(data))
             return data
